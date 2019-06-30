@@ -1,5 +1,5 @@
 # SQLandR
-R script that connects to a SQL database extracts data then connects to a flat file merges and wrangles the data from both sources and creates an xlsx based report
+R script that connects to a SQL database extracts data then connects to a series of flat file merges and wrangles the data from all sources and creates an xlsx based report
 
 
 ## Objective
