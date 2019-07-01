@@ -2,8 +2,7 @@
 title: "SQLandR"
 output:
    html_document:
-      self_contained: true
-      keep_md: true
+    keep_md: true
 ---
 
 ```{r setup, include=FALSE}
