@@ -1,0 +1,256 @@
+---
+title: "AdvertReports"
+output:
+   html_document:
+      self_contained: false
+      keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+
+loading the SQLLite db file into R
+
+```{r echo=TRUE, paged.print=TRUE}
+library(RSQLite)
+
+filename <- "advert.db"
+sqlite.driver <- dbDriver("SQLite")
+db <- dbConnect(sqlite.driver,
+                dbname = filename)
+
+```
+
+List the tables avalaible in the db
+
+```{r echo=TRUE, paged.print=TRUE}
+dbListTables(db)
+```
+
+passing the "campaings" db table in a R dataframe named **campaignsinfo** and listing the data
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+campaingnsinfo<-dbReadTable(db, "campaigns")
+knitr::kable(campaingnsinfo)
+
+```
+
+df constists of 11 observations of 3 variables(`ID`,`PAYOUT`, `ACCOUNT_MANAGER`) we will change the name of the `ID` variable to `CAMPAiNGID` since ID is used also as a variable name in the conversions datasets
+
+```{r echo=TRUE, warning=FALSE, paged.print=TRUE}
+library(dplyr)
+campaingnsinfo<-campaingnsinfo%>%rename(CAMPAIGNID=ID)
+knitr::kable(head(campaingnsinfo, n=11))
+```
+
+Merging the indivudal csv files containing the conversion events from 01-03-2019 to 07-03-2019 to a dataframe naned **conversionevents**
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#change the wd to the folder where conversion files stored
+setwd("/Users/christospsaropoulos/Documents/Git/SQLandR/conversions")
+getwd()
+library(stringr)
+library(readr)
+library(purrr)
+library(dplyr)
+
+#create a list with the names of the csvs that contain the conversion data
+files <- list.files( pattern = "csv", full.names = TRUE)
+#merge the individual csv adding a column that contains the file name 
+conversionevents<-files %>% 
+  map(.f = ~read_csv(.x)) %>%
+  set_names(nm = files) %>%     
+  map_dfr(identity, .id = "Name")
+#replace the Name column with Date
+conversionevents<-conversionevents%>%mutate(Name=str_extract(Name,"[0-9]{4}[-][0-9]{2}[-][0-9]{2}+"))%>%rename(Date=Name)%>%mutate(Date=as.Date(Date))
+conversionevents
+```
+
+Removing duplicates from the **conversionevents** dataframe and saving the unique values in a new dataframe named **conversionevents_unique**. 
+A total of 2389 duplicate values have been removed.
+
+```{r echo=TRUE}
+conversionevents_unique<-distinct(conversionevents)
+conversionevents_unique
+
+```
+
+Loading the rejected conversions in a R dataframe named **rejections**. As we can see we have 4779 rejected conversions
+
+```{r echo=TRUE}
+
+rejections <- read.table("rejections.txt", header=FALSE, fill = TRUE)
+rejections<-rejections%>% mutate_all(as.character)%>%rename(ID=V1)
+head(rejections)
+summary(rejections)
+
+```
+
+
+excluding `ID`listed in **rejections** from **conversionsevents_unique**
+
+```{r echo=TRUE}
+conversionevents_unique<-conversionevents_unique %>% anti_join(rejections)
+conversionevents_unique
+```
+
+Grouping conversions per `GAMPAINGID`
+
+```{r echo=TRUE}
+conversionevents_unique %>% group_by(CAMPAIGNID) %>%summarise( campaignconversion = n())
+```
+
+Joining the **conversionevents_unique** dataframe with the **campaigninfo** dataframe in a dataframe named **master**
+
+```{r echo=TRUE}
+master<-full_join(conversionevents_unique,campaingnsinfo,by="CAMPAIGNID")
+master
+```
+
+calculating spend per campaign
+
+```{r echo=TRUE, paged.print=TRUE}
+master2<-master%>% group_by(CAMPAIGNID,PAYOUT,ACCOUNT_MANAGER) %>%summarise( CAMPAIGN_CONVERSION = n())%>% mutate(TOTALSPEND=(PAYOUT*CAMPAIGN_CONVERSION))
+knitr::kable(master2,n=11)
+```
+
+Selecting the column needed for Task1 Report
+
+```{r echo=TRUE, paged.print=TRUE}
+Task1<-master2%>%ungroup()%>%select(CAMPAIGNID,ACCOUNT_MANAGER,CAMPAIGN_CONVERSION,PAYOUT,TOTALSPEND)
+knitr::kable(Task1, n=11)
+```
+
+calculating daily spend per campaign
+
+```{r echo=TRUE, paged.print=TRUE}
+master3<-master%>% group_by(CAMPAIGNID,Date,PAYOUT) %>%summarise( CAMPAIGN_CONVERSION = n())%>% mutate(TOTALSPEND=(PAYOUT*CAMPAIGN_CONVERSION))
+master3
+
+```
+calculating daily percentage differences per campaign
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+library(scales)
+dailydiff<-master3%>%ungroup()%>%select(Date,CAMPAIGNID,TOTALSPEND)%>%group_by(CAMPAIGNID,Date)%>%summarise(TOTALSPEND = sum(TOTALSPEND))%>% mutate(DIFF=TOTALSPEND-lag(TOTALSPEND, n=1),PERCENT_DIFF = percent(DIFF/lag(TOTALSPEND,n=1)))
+dailydiff
+
+```
+Selecting the column needed for Task2 Report
+```{r}
+Task2<-dailydiff%>%ungroup()
+Task2
+```
+
+Exporting Task1 and Task2 Report in an xlsx file
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+library(xlsx)
+
+# create new workbook
+wb <- createWorkbook()
+
+#--------------------
+# DEFINE CELL STYLES 
+#--------------------
+# title and subtitle styles
+title_style <- CellStyle(wb) + 
+               Font(wb, heightInPoints = 16,
+                    color = "blue", 
+                    isBold = TRUE, 
+                    underline = 1)
+
+subtitle_style <- CellStyle(wb) + 
+                  Font(wb, heightInPoints = 14,
+                       isItalic = TRUE,
+                       isBold = FALSE)
+
+# data table styles
+rowname_style <- CellStyle(wb) +
+                 Font(wb, isBold = TRUE)
+
+colname_style <- CellStyle(wb) +
+                 Font(wb, isBold = TRUE) +
+                 Alignment(wrapText = TRUE, horizontal = "ALIGN_CENTER") +
+                 Border(color = "black",
+                        position = c("TOP", "BOTTOM"),
+                        pen = c("BORDER_THIN", "BORDER_THICK"))
+
+
+
+#-------------------------
+# CREATE & EDIT WORKSHEET 
+#-------------------------
+# create worksheets
+sheet1 <- createSheet(wb, sheetName = "Task1")
+sheet2 <- createSheet(wb, sheetName = "Task2")
+
+# helper function to add titles
+xlsx.addTitle <- function(sheet, rowIndex, title, titleStyle) {
+        rows <- createRow(sheet, rowIndex = rowIndex)
+        sheetTitle <- createCell(rows, colIndex = 1)
+        setCellValue(sheetTitle[[1,1]], title)
+        setCellStyle(sheetTitle[[1,1]], titleStyle)
+}
+
+# add title and sub title to worksheet
+xlsx.addTitle(sheet = sheet1, rowIndex = 1, 
+              title = "Advert",
+              titleStyle = title_style)
+
+xlsx.addTitle(sheet = sheet2, rowIndex = 1, 
+              title = "Advert",
+              titleStyle = title_style)
+
+xlsx.addTitle(sheet =sheet1, rowIndex = 2, 
+              title = "Total Spend per Campaign & Account Manager",
+              titleStyle = subtitle_style)
+
+xlsx.addTitle(sheet =sheet2, rowIndex = 2, 
+              title = "Total Spend per Campaign & Account Manager Declining Campaigns",titleStyle = subtitle_style)
+
+# add data frame to worksheet
+addDataFrame(Task1, sheet = sheet1, startRow = 3, startColumn = 1,
+             colnamesStyle = colname_style, 
+             rownamesStyle = rowname_style)
+
+addDataFrame(Task2, sheet = sheet2, startRow = 3, startColumn = 1,
+             colnamesStyle = colname_style, 
+             rownamesStyle = rowname_style)
+
+# change row name column width
+setColumnWidth(sheet = sheet1, colIndex = 1, colWidth = 3)
+setColumnWidth(sheet = sheet1, colIndex = 2, colWidth = 38)
+setColumnWidth(sheet = sheet1, colIndex = 3, colWidth = 21)
+setColumnWidth(sheet = sheet1, colIndex = 4, colWidth = 15)
+
+# change row name column width
+setColumnWidth(sheet = sheet2, colIndex = 1, colWidth = 3)
+setColumnWidth(sheet = sheet2, colIndex = 2, colWidth = 38)
+setColumnWidth(sheet = sheet2, colIndex = 3, colWidth = 25)
+setColumnWidth(sheet = sheet2, colIndex = 4, colWidth = 30)
+
+
+# save workbook
+saveWorkbook(wb, file = "AdvertReport.xlsx")
+
+# view the file
+#library(r2excel)
+#in case you do not have r2excel package in  your library please run the following: 
+#install.packages("devtools")
+#devtools::install_github("kassambara/r2excel")
+#xlsx.openFile("BlueBananaReport.xlsx")
+```
+
+
+
+
