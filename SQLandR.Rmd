@@ -1,10 +1,10 @@
 ---
 title: "SQLandR"
-output:
-   github_document
+
+output: github_document
     
 ---
-
+###### author: "Christos Psarropoulos"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -12,6 +12,7 @@ knitr::opts_chunk$set(
 	warning = FALSE
 )
 ```
+
 
 
 loading the SQLLite db file into R
@@ -88,7 +89,7 @@ Loading the rejected conversions in a R dataframe named **rejections**. As we ca
 
 rejections <- read.table("rejections.txt", header=FALSE, fill = TRUE)
 rejections<-rejections%>% mutate_all(as.character)%>%rename(ID=V1)
-head(rejections)
+knitr::kable(head(rejections))
 summary(rejections)
 
 ```
@@ -139,13 +140,13 @@ calculating daily percentage differences per campaign
 ```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 library(scales)
 dailydiff<-master3%>%ungroup()%>%select(Date,CAMPAIGNID,TOTALSPEND)%>%group_by(CAMPAIGNID,Date)%>%summarise(TOTALSPEND = sum(TOTALSPEND))%>% mutate(DIFF=TOTALSPEND-lag(TOTALSPEND, n=1),PERCENT_DIFF = percent(DIFF/lag(TOTALSPEND,n=1)))
-dailydiff
+knitr::kable(dailydiff)
 
 ```
 Selecting the column needed for Task2 Report
 ```{r}
 Task2<-dailydiff%>%ungroup()
-Task2
+knitr::kable(Task2)
 ```
 
 Exporting Task1 and Task2 Report in an xlsx file
