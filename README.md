@@ -32,3 +32,6 @@ You are a data analyst for an advertising technology company called "Advert". Th
 
 1. A spreadsheet report displaying the total spend for each campaign per account manager.
 2. A spreadsheet report displaying the daily difference in spend for each campaign.
+
+## Output
+1. [SQLandR Report](SQLandR.md)
