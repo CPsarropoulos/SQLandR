@@ -8,3 +8,9 @@ include:
  
 
 theme: jekyll-theme-minimal
+-
+    scope:
+      path: "" # all files
+    values:
+      layout: "page"
+      show-avatar: true
