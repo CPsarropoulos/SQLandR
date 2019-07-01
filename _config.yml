@@ -12,7 +12,7 @@ relative_links:
   enabled: true
   collections: true
 include:
-  - SQLandR.md
-  - README.md
-  - LICENSE.md
+ - SQLandR.md
+ - README.md
+ - LICENSE.md
 
