@@ -1,12 +1,12 @@
 github: [metadata]
 encoding: UTF-8
- kramdown:
-   input: GFM
-   hard_wrap: false
- future: true
- jailed: false
- theme: jekyll-theme-primer
- gfm_quirks: paragraph_end
+kramdown:
+  input: GFM
+  hard_wrap: false
+  future: true
+  jailed: false
+  theme: jekyll-theme-primer
+  gfm_quirks: paragraph_end
 
 relative_links:
   enabled: true
@@ -15,7 +15,4 @@ include:
   - SQLandR.md
   - README.md
   - LICENSE.md
- 
-
-theme: jekyll-theme-minimal
 
